@@ -15,6 +15,9 @@ use hyprland_ipc::{client, monitor, option, workspace};
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    /// Define workspace step size (1-10); defaults to 10
+    #[arg(short, long, value_name="STEP")]
+    step: Option<u64>,
 }
 
 #[derive(Subcommand)]
@@ -71,47 +74,29 @@ pub fn get_current_monitor() -> Monitor {
 }
 
 //TODO: refactor this nonsense
-pub fn select_workspace(workspace_number: &u64) {
+pub fn select_workspace(workspace_number: u64, step: u64) {
     let mon = get_current_monitor();
-    match mon.id {
+    match mon.id  {
         0 => workspace::focus(workspace_number),
-        _ => {
-            workspace::focus(
-                &format!("{}{}", mon.id, workspace_number)
-                    .parse::<u64>()
-                    .unwrap(),
-            );
-        }
+        _ => workspace::focus((mon.id as u64 * step) + workspace_number),
     }
 }
 
 //TODO: refactor this nonsense
-pub fn send_to_workspace(workspace_number: &u64) {
+pub fn send_to_workspace(workspace_number: u64, step: u64) {
     let mon = get_current_monitor();
     match mon.id {
         0 => workspace::move_to(workspace_number),
-        _ => {
-            workspace::move_to(
-                &format!("{}{}", mon.id, workspace_number)
-                    .parse::<u64>()
-                    .unwrap(),
-            );
-        }
+        _ => workspace::move_to((mon.id as u64 * step) + workspace_number),
     }
 }
 
 //TODO: refactor this nonsense
-pub fn movefocus(workspace_number: &u64) {
+pub fn movefocus(workspace_number: u64, step: u64) {
     let mon = get_current_monitor();
     match mon.id {
         0 => workspace::move_focus(workspace_number),
-        _ => {
-            workspace::move_focus(
-                &format!("{}{}", mon.id, workspace_number)
-                    .parse::<u64>()
-                    .unwrap(),
-            );
-        }
+        _ => workspace::move_focus((mon.id as u64 * step) + workspace_number),
     }
 }
 
@@ -272,6 +257,16 @@ pub fn is_bottom_monitor(mon: &Monitor) -> bool {
 
 fn main() {
     let cli = Cli::parse();
+    let step = match cli.step {
+      Some(i) => {
+        match i {
+          n if n < 10 => n,
+          _ => 10,
+        }
+      },
+      None => 10,
+    };
+
     match &cli.command {
         Commands::Focus { direction } => match direction {
             Directions::L => {
@@ -308,13 +303,13 @@ fn main() {
             }
         },
         Commands::Workspace { workspace_number } => {
-            select_workspace(workspace_number);
+            select_workspace(*workspace_number, step);
         }
         Commands::Move { workspace_number } => {
-            send_to_workspace(workspace_number);
+            send_to_workspace(*workspace_number, step);
         }
         Commands::Movefocus { workspace_number } => {
-            movefocus(workspace_number);
+            movefocus(*workspace_number, step);
         }
     }
 }
